@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.OpenApi.Models;
@@ -82,7 +83,79 @@ public class Program
                 Log.Information(" - Project Alias: {Alias}, Server: {Server}, Default: {IsDefault}", 
                     proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
             }
-            
+
+            // Allow overriding Polarion passwords via environment variables.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_PASSWORD  (alias normalized to [A-Z0-9_])
+            //  - POLARION_PASSWORD           (applies to the project marked Default)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+                    var envName = $"POLARION_{norm}_PASSWORD";
+                    var envVal = Environment.GetEnvironmentVariable(envName);
+                    if (string.IsNullOrEmpty(envVal) && proj.Default)
+                    {
+                        envVal = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
+                        envName = "POLARION_PASSWORD";
+                    }
+
+                    if (!string.IsNullOrEmpty(envVal))
+                    {
+                        if (proj.SessionConfig != null)
+                        {
+                            proj.SessionConfig.Password = envVal;
+                            Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, envName);
+                        }
+                        else
+                        {
+                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Password override skipped.", envName, alias);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
+            }
+
+            // Allow overriding Personal Access Tokens via environment variables.
+            // PAT takes priority over password when both are present.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_PAT  (alias normalized to [A-Z0-9_])
+            //  - POLARION_PAT          (applies to the project marked Default)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    var norm  = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+
+                    var patEnvName = $"POLARION_{norm}_PAT";
+                    var patEnvVal  = Environment.GetEnvironmentVariable(patEnvName);
+                    if (string.IsNullOrEmpty(patEnvVal) && proj.Default)
+                    {
+                        patEnvVal  = Environment.GetEnvironmentVariable("POLARION_PAT");
+                        patEnvName = "POLARION_PAT";
+                    }
+
+                    if (!string.IsNullOrEmpty(patEnvVal))
+                    {
+                        proj.PersonalAccessToken = patEnvVal;
+                        Log.Information(
+                            "Overrode PersonalAccessToken for project '{ProjectAlias}' from env var '{EnvVarName}'",
+                            alias, patEnvName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion PATs from environment variables.");
+            }
 
             // Add Serilog
             //
@@ -151,6 +224,7 @@ public class Program
             builder.Services.AddSingleton(polarionProjects); // Register the list of project configurations
             builder.Services.AddScoped<IPolarionClientFactory, PolarionRemoteClientFactory>(); // For MCP endpoints (uses ProjectUrlAlias)
             builder.Services.AddScoped<RestApiProjectResolver>(); // For REST API endpoints (uses SessionConfig.ProjectId)
+            builder.Services.AddScoped<IMcpScopeEnforcer, HttpMcpScopeEnforcer>(); // Scope enforcement for HTTP transport
 
             // Add the McpServer to the DI container
             //

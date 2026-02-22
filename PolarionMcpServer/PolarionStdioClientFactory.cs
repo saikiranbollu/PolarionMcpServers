@@ -69,8 +69,10 @@ namespace PolarionMcpServer
                 }
             }
 
-            // Use the SessionConfig from the selected project configuration
-            var clientConfig = selectedConfig.SessionConfig;
+            // -------------------------------------------------------
+            // v0.13.0: Use GetEffectiveClientConfig() to support PAT.
+            // -------------------------------------------------------
+            var clientConfig = selectedConfig.GetEffectiveClientConfig();
 
             if (clientConfig == null)
             {
@@ -79,17 +81,26 @@ namespace PolarionMcpServer
                 return Result.Fail(errorMessage);
             }
 
-            _logger.LogDebug("Creating Polarion client using Server: {ServerUrl}, User: {Username}, Project: {RealProjectId}", 
-                clientConfig.ServerUrl, clientConfig.Username, clientConfig.ProjectId);
+            var authMode = !string.IsNullOrWhiteSpace(selectedConfig.PersonalAccessToken)
+                ? "PAT"
+                : "Password";
+            _logger.LogDebug(
+                "Creating Polarion client using Server: {ServerUrl}, User: {Username}, " +
+                "Project: {RealProjectId}, AuthMode: {AuthMode}",
+                clientConfig.ServerUrl, clientConfig.Username, clientConfig.ProjectId, authMode);
 
             // Create the client using the selected configuration
-            var clientResult = await PolarionClient.CreateAsync(clientConfig); 
+            var clientResult = await PolarionClient.CreateAsync(clientConfig);
             if (clientResult.IsFailed)
             {
                 var errorMessage = clientResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
-                _logger.LogError("Failed to create Polarion client via factory for server: {ServerUrl} (Alias: {Alias}). Error: {ErrorMessage}",
-                    clientConfig.ServerUrl, selectedConfig.ProjectUrlAlias, errorMessage);
-                return Result.Fail($"Failed to create Polarion client via factory for alias '{selectedConfig.ProjectUrlAlias}': {errorMessage}");
+                _logger.LogError(
+                    "Failed to create Polarion client via factory for server: {ServerUrl} " +
+                    "(Alias: {Alias}). AuthMode: {AuthMode}. Error: {ErrorMessage}",
+                    clientConfig.ServerUrl, selectedConfig.ProjectUrlAlias, authMode, errorMessage);
+                return Result.Fail(
+                    $"Failed to create Polarion client via factory for alias " +
+                    $"'{selectedConfig.ProjectUrlAlias}': {errorMessage}");
             }
 
             _logger.LogDebug("Successfully created new Polarion client for server: {ServerUrl} (Alias: {Alias})", 

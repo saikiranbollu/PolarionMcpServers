@@ -225,6 +225,41 @@ public class Program
                 Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
             }
 
+            // Allow overriding Personal Access Tokens via environment variables.
+            // PAT takes priority over password when both are present.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_PAT  (alias normalized to [A-Z0-9_])
+            //  - POLARION_PAT          (applies to the project marked Default)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    var norm  = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+
+                    var patEnvName = $"POLARION_{norm}_PAT";
+                    var patEnvVal  = Environment.GetEnvironmentVariable(patEnvName);
+                    if (string.IsNullOrEmpty(patEnvVal) && proj.Default)
+                    {
+                        patEnvVal  = Environment.GetEnvironmentVariable("POLARION_PAT");
+                        patEnvName = "POLARION_PAT";
+                    }
+
+                    if (!string.IsNullOrEmpty(patEnvVal))
+                    {
+                        proj.PersonalAccessToken = patEnvVal;
+                        Log.Information(
+                            "Overrode PersonalAccessToken for project '{ProjectAlias}' from env var '{EnvVarName}'",
+                            alias, patEnvName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion PATs from environment variables.");
+            }
+
             
             // Add Serilog
             //
@@ -242,6 +277,9 @@ public class Program
                     projectAlias
                 )
             );
+
+            // Register permissive scope enforcer — stdio server has no HTTP auth layer.
+            builder.Services.AddSingleton<IMcpScopeEnforcer, DefaultMcpScopeEnforcer>();
 
             // Add the McpServer to the DI container
             //

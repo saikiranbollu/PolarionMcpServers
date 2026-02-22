@@ -45,11 +45,60 @@ namespace PolarionMcpTools
         /// </summary>
         public PolarionClientConfiguration? SessionConfig { get; set; }
 
+        // -------------------------------------------------------
+        // PAT Authentication (NEW in v0.13.0)
+        // -------------------------------------------------------
+
+        /// <summary>
+        /// Optional Polarion Personal Access Token (PAT).
+        /// When set, it is used as the credential instead of
+        /// <c>SessionConfig.Password</c>.
+        ///
+        /// Polarion's SOAP API accepts the PAT as the password
+        /// argument in its logIn() call, so the factory substitutes
+        /// it transparently.
+        ///
+        /// Recommended: Leave this empty in appsettings.json and
+        /// supply it via the <c>POLARION_{ALIAS}_PAT</c> environment
+        /// variable instead so that tokens never appear in config files.
+        ///
+        /// Priority over Password: PAT is always preferred when present.
+        /// </summary>
+        public string? PersonalAccessToken { get; set; }
+
+        // -------------------------------------------------------
+        // MCP Scope Enforcement (NEW in v0.13.0)
+        // -------------------------------------------------------
+
+        /// <summary>
+        /// When <c>true</c>, MCP write tools require the caller to
+        /// hold the <c>polarion:write</c> scope.  Defaults to <c>true</c>
+        /// for the remote HTTP server.
+        ///
+        /// Set to <c>false</c> only for trusted internal deployments
+        /// where authentication is handled at the network layer.
+        ///
+        /// Note: This has no effect on the stdio console server
+        /// (<c>PolarionMcpServer</c>), which always uses
+        /// <c>DefaultMcpScopeEnforcer</c> (permits everything).
+        /// </summary>
+        public bool EnforceMcpScopes { get; set; } = true;
+
+        // -------------------------------------------------------
+        // Existing fields (unchanged)
+        // -------------------------------------------------------
+
         /// <summary>
         /// A string pattern used to filter out spaces that contain this string.
         /// If null or empty, no filtering is applied.
         /// </summary>
         public string? BlacklistSpaceContainingMatch { get; set; }
+
+        /// <summary>
+        /// Optional work item ID prefix for this project (e.g., "STR", "OCT").
+        /// Used for display and validation purposes.
+        /// </summary>
+        public string? WorkItemPrefix { get; set; }
 
         /// <summary>
         /// Gets or sets the list of WorkItem type configurations specific to this project.
@@ -69,9 +118,36 @@ namespace PolarionMcpTools
         /// </summary>
         public List<string>? PolarionDocumentDefaultFields { get; set; }
 
+        // -------------------------------------------------------
+        // Helper: resolve effective credential
+        // -------------------------------------------------------
+
         /// <summary>
-        /// Gets or sets the prefix to be used when creating a Polarion WorkItem.
-        /// If null or empty, no prefix will be used.
-        public string? WorkItemPrefix { get; set; }
+        /// Returns a <see cref="PolarionClientConfiguration"/> ready for
+        /// <c>PolarionClient.CreateAsync()</c>.  Substitutes the PAT for
+        /// Password when a PAT is available.
+        /// </summary>
+        public PolarionClientConfiguration? GetEffectiveClientConfig()
+        {
+            if (SessionConfig == null) return null;
+
+            var pat = PersonalAccessToken;
+            if (string.IsNullOrWhiteSpace(pat))
+            {
+                // No PAT — use SessionConfig as-is.
+                return SessionConfig;
+            }
+
+            // PAT is present: create a modified copy where Password = PAT.
+            // Polarion SOAP logIn(username, password) accepts PAT as password.
+            return new PolarionClientConfiguration
+            {
+                ServerUrl      = SessionConfig.ServerUrl,
+                Username       = SessionConfig.Username,
+                Password       = pat,   // ← PAT substituted here
+                ProjectId      = SessionConfig.ProjectId,
+                TimeoutSeconds = SessionConfig.TimeoutSeconds
+            };
+        }
     }
 }
