@@ -4,19 +4,34 @@ This repository contains Model Context Protocol (MCP) server implementations for
 
 MCP Tools are available for Polarion work items, including:
 
-- `get_text_for_workitems_by_id`: Gets the main text content for specified WorkItem IDs.
-- `get_text_for_workitem_at_revision`: Gets the text content for a single WorkItem at a specific revision.
-- `get_details_for_workitems`: Gets detailed information for specified WorkItem IDs including status, type, assignee, custom fields, and linked work items.
-- `get_documents`: Lists documents in the project, optionally filtered by title.
-- `get_documents_by_space_names`: Lists documents within specified space names.
-- `get_space_names`: Lists all available space names in the project.
-- `get_sections_in_document`: Gets the list of sections in a document.
-- `get_section_content_for_document`: Gets the content of a specific section in a document.
-- `search_workitems_in_document`: Searches for WorkItems within a document based on text criteria.
-- `list_available_custom_fields_for_workitem_types`: Lists all available custom fields for specific WorkItem types.
-- `list_available_workitem_types`: Lists all WorkItem types available in the project.
-- `get_revisions_list_for_workitem`: Gets the list of revision IDs for a specific work item, ordered from newest to oldest.
-- `get_revisions_content_for_workitem`: Gets the content of a work item at different revisions, including title, status, description, and other standard fields.
+**Read Tools:**
+- `get_workitem`: Gets the main text content for a WorkItem, optionally at a specific revision.
+- `get_workitem_details`: Gets detailed information including status, type, assignee, custom fields, and linked work items with recursive link traversal.
+- `get_workitem_history`: Gets revision history for a work item with content at different revisions.
+- `search_workitems`: Searches for WorkItems across the project using Polarion Lucene search.
+- `search_workitems_advanced`: Advanced search with Lucene query syntax, custom field retrieval, and sorting.
+- `search_in_document`: Searches for WorkItems within a document based on text criteria.
+- `list_documents`: Lists documents in the project, optionally filtered by space or title.
+- `list_spaces`: Lists all available space names in the project.
+- `list_workitem_types`: Lists all WorkItem types available in the project.
+- `list_custom_fields`: Lists all available custom fields for specific WorkItem types.
+- `get_document_info`: Gets document metadata and details.
+- `get_document_outline`: Gets the list of sections in a document.
+- `get_document_section`: Gets the content of a specific section in a document.
+- `get_document_revision_history`: Gets revision history of a document.
+- `get_workitems_in_module`: Gets all work items in a document/module, with optional revision support.
+- `get_workflow_actions`: Lists available workflow transitions (status changes) for a work item.
+- `get_traceability_graph`: Generates a Mermaid flowchart of work item link relationships with recursive traversal.
+
+**Write Tools** (require `polarion:write` scope on remote server):
+- `create_workitem`: Creates a new work item with type, title, description, status, and custom fields.
+- `update_workitem`: Updates existing work item fields (title, description, status, custom fields).
+- `link_workitems`: Adds traceability links between work items with configurable role and direction.
+- `unlink_workitems`: Removes traceability links between work items.
+- `perform_workflow_action`: Executes a status transition on a work item with optional audit comment.
+- `add_comment`: Adds a rich-text comment (HTML) to a work item.
+- `bulk_update_workitems`: Batch updates multiple work items (up to 50) with per-item error handling.
+- `bulk_add_comment`: Batch adds comments to multiple work items (up to 50).
 
 ## Projects
 
@@ -156,11 +171,37 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 | -------------- | ------------------------------------------------------------------- | -------- | ------- |
 | `ServerUrl`    | URL of the Polarion server (e.g., "https://polarion.example.com/")  | Yes      | N/A     |
 | `Username`     | Polarion username with appropriate permissions.                     | Yes      | N/A     |
-| `Password`     | Password for the Polarion user. **(Consider secure alternatives)**    | Yes      | N/A     |
+| `Password`     | Password for the Polarion user. **(Consider secure alternatives)**    | Yes*     | N/A     |
 | `ProjectId`    | The *actual* ID of the Polarion project to interact with.           | Yes      | N/A     |
 | `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
 
-*Note: It is strongly recommended to use more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
+\* Either `Password` or `PersonalAccessToken` (at the project level) must be provided. PAT takes priority when both are set.
+
+**Additional Project-Level Settings:**
+
+| Setting                   | Description                                                                 | Required | Default |
+| ------------------------- | --------------------------------------------------------------------------- | -------- | ------- |
+| `PersonalAccessToken`     | Polarion Personal Access Token (PAT). When set, used instead of Username/Password. | No       | N/A     |
+| `EnforceMcpScopes`        | Whether MCP scope enforcement is active for this project.                   | No       | `true`  |
+
+### Credential Priority Chain
+
+Credentials can be provided via appsettings or environment variables. The resolution order (highest priority first):
+
+1. `POLARION_{ALIAS}_PAT` — Per-project PAT env var (alias normalized to uppercase alphanumeric + underscore)
+2. `POLARION_PAT` — Global PAT env var (applies to the project marked `Default`)
+3. `POLARION_{ALIAS}_PASSWORD` — Per-project password env var
+4. `POLARION_PASSWORD` — Global password env var (applies to the project marked `Default`)
+5. `PersonalAccessToken` in appsettings.json
+6. `Password` in appsettings.json
+
+Example:
+```bash
+export POLARION_STARLIGHT_PAT="eyJhbGci..."     # For project with alias "starlight"
+export POLARION_PAT="eyJhbGci..."                  # Fallback for default project
+```
+
+*Note: It is strongly recommended to use environment variables or other secure methods (User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
 
 ### API Key Authentication (REST API Only)
 
@@ -176,7 +217,9 @@ REST API endpoints require authentication via API key. Configure API consumers i
 | `Description` | Optional description of the consumer | No |
 
 **Available Scopes:**
-- `polarion:read` - Read access to all REST API endpoints
+- `polarion:read` — Read access to all REST API and read-only MCP tools
+- `polarion:write` — Write access to mutation MCP tools (create, update, link, comment, workflow)
+- `polarion:admin` — Administrative operations (reserved for future use)
 
 **Usage:**
 ```bash

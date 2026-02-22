@@ -1,5 +1,64 @@
 # Changelog
 
+## 0.13.0 - patch
+
+### Added
+
+- **Write Operations** — New MCP tools for creating and modifying Polarion data:
+  - `create_workitem` — Create new work items with type, title, description, status, and custom fields
+  - `update_workitem` — Update existing work item fields (title, description, status, custom fields)
+  - `link_workitems` — Add traceability links between work items with configurable role and direction
+  - `unlink_workitems` — Remove traceability links between work items
+  - `search_workitems_advanced` — Advanced search with Polarion Lucene query syntax, custom field retrieval, and sorting
+
+- **Workflow & Status Transitions** — MCP tools for managing work item lifecycle:
+  - `get_workflow_actions` — List all available workflow transitions for a work item
+  - `perform_workflow_action` — Execute a status transition with optional audit comment
+
+- **Comments** — MCP tool for adding comments to work items:
+  - `add_comment` — Add rich-text comments (HTML) with optional title/subject
+
+- **Traceability Graph** — Visual link traversal tool:
+  - `get_traceability_graph` — Generate Mermaid flowcharts of work item link relationships with recursive traversal and status-colored nodes
+
+- **Bulk Operations** — Batch processing tools (up to 50 items per call):
+  - `bulk_update_workitems` — Batch update multiple work items with atomic per-item error handling
+  - `bulk_add_comment` — Batch add comments to multiple work items
+
+- **Personal Access Token (PAT) Authentication**:
+  - Add `PersonalAccessToken` project configuration property as alternative to username/password
+  - PAT takes priority over password when both are configured
+  - Environment variable support: `POLARION_{ALIAS}_PAT` and `POLARION_PAT` (same pattern as password overrides)
+  - Both stdio and remote servers support PAT env var injection
+  - Auth mode (PAT vs Password) logged at connection time for troubleshooting
+
+- **MCP Scope Enforcement**:
+  - Add `IMcpScopeEnforcer` interface for scope-based access control on MCP tools
+  - `DefaultMcpScopeEnforcer` for stdio server (always permits — no HTTP auth context)
+  - `HttpMcpScopeEnforcer` for remote server (reads API consumer scope claims from HTTP context)
+  - Write tools require `polarion:write` scope; read tools require `polarion:read`
+  - Add `EnforceMcpScopes` project configuration property (default: `true`)
+  - New API scopes: `polarion:write` and `polarion:admin`
+
+- **Secure Credential Management**:
+  - Add password env var override support for remote server (previously only stdio)
+  - Environment variable priority chain: `POLARION_{ALIAS}_PAT` > `POLARION_PAT` > `POLARION_{ALIAS}_PASSWORD` > `POLARION_PASSWORD` > appsettings
+  - Updated `.env.example` with credential documentation
+
+- **SOAP Extension Methods** (internal):
+  - `GetAvailableWorkflowActionsAsync` — wraps `TrackerWebService.getAvailableActionsAsync`
+  - `PerformWorkflowActionAsync` — resolves string/numeric action ID and wraps `TrackerWebService.performWorkflowActionAsync`
+  - `AddCommentAsync` — wraps `TrackerWebService.addCommentAsync` with HTML Text content
+  - `CreateWorkItemAsync` — wraps `TrackerWebService.createWorkItemAsync`
+  - `UpdateWorkItemAsync` — wraps `TrackerWebService.updateWorkItemAsync`
+  - `AddLinkedItemAsync` / `RemoveLinkedItemAsync` — wraps linked item SOAP calls
+
+### Changed
+
+- `PolarionProjectConfig` — Add `GetEffectiveClientConfig()` helper that transparently substitutes PAT as password for the Polarion client
+- Both `PolarionStdioClientFactory` and `PolarionRemoteClientFactory` now use `GetEffectiveClientConfig()` and log authentication mode
+- `ApiScopes` — Replace `PolarionCreate`/`PolarionUpdate` with unified `PolarionWrite` scope; add `PolarionAdmin`
+
 ## 0.13.0
 
 ### Fixed
