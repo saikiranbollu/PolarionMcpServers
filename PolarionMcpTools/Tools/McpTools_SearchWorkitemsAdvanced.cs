@@ -153,6 +153,12 @@ public sealed partial class McpTools
 
                 var workItems = searchResult.Value;
 
+                // Apply sort direction — Polarion returns ascending by default.
+                if (workItems != null && effectiveSortOrder == "desc")
+                {
+                    Array.Reverse(workItems);
+                }
+
                 if (workItems is null || workItems.Length == 0)
                 {
                     return $"## No Results Found\n\n" +

@@ -339,6 +339,12 @@ public static class WorkItemsEndpoints
 
             var workItems = searchResult.Value ?? Array.Empty<Polarion.Generated.Tracker.WorkItem>();
 
+            // Apply sort direction — Polarion returns ascending by default.
+            if (sortDescending && workItems.Length > 0)
+            {
+                Array.Reverse(workItems);
+            }
+
             // Convert to JSON:API format
             var resources = workItems
                 .Take(pageSize)

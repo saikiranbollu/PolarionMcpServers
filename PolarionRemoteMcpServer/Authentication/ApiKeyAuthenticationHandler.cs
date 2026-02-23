@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authentication;
@@ -52,9 +53,11 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
-        // Find matching consumer by API key
+        // Find matching consumer by API key (constant-time comparison to prevent timing attacks)
         var matchingConsumer = _consumersConfig.Consumers
-            .FirstOrDefault(kvp => kvp.Value.ApplicationKey == providedApiKey);
+            .FirstOrDefault(kvp => CryptographicOperations.FixedTimeEquals(
+                System.Text.Encoding.UTF8.GetBytes(kvp.Value.ApplicationKey ?? string.Empty),
+                System.Text.Encoding.UTF8.GetBytes(providedApiKey)));
 
         if (matchingConsumer.Key == null)
         {
@@ -72,7 +75,7 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<ApiKeyAuthentic
             return Task.FromResult(AuthenticateResult.Fail("Consumer is inactive"));
         }
 
-        Log.Information("API Key authentication: Consumer '{ConsumerId}' ({Name}) authenticated successfully",
+        Log.Debug("API Key authentication: Consumer '{ConsumerId}' ({Name}) authenticated successfully",
             consumerId, consumer.Name);
 
         // Build claims

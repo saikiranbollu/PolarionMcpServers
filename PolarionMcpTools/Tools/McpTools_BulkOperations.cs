@@ -96,22 +96,12 @@ public sealed partial class McpTools
         if (scopeError != null) return scopeError;
 
         // -------------------------------------------------------
-        // Parse custom fields
+        // Parse custom fields via shared helper
         // -------------------------------------------------------
-        var customFieldMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(customFields))
-        {
-            foreach (var line in customFields.Split(new[] { '\n', '\r' },
-                         StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var eqIdx = line.IndexOf('=');
-                if (eqIdx <= 0) continue;
-                var key = line[..eqIdx].Trim();
-                var val = line[(eqIdx + 1)..].Trim();
-                if (!string.IsNullOrEmpty(key))
-                    customFieldMap[key] = val;
-            }
-        }
+        var parseResult = ParseCustomFields(customFields);
+        if (parseResult.IsFailed)
+            return $"ERROR: (4005) {parseResult.Errors.First().Message}";
+        var customFieldMap = parseResult.Value;
 
         // -------------------------------------------------------
         // Build change summary for audit comment
@@ -175,28 +165,10 @@ public sealed partial class McpTools
                     };
                 }
 
-                // Merge custom fields.
+                // Merge custom fields via shared helper.
                 if (customFieldMap.Count > 0)
                 {
-                    var existingFields = wi.customFields?.Custom?.ToList()
-                                        ?? new List<Custom>();
-
-                    foreach (var kv in customFieldMap)
-                    {
-                        var existing = existingFields.FirstOrDefault(
-                            f => f.id?.Equals(kv.Key, StringComparison.OrdinalIgnoreCase) == true);
-
-                        if (existing != null)
-                            existing.value = kv.Value;
-                        else
-                            existingFields.Add(new Custom
-                                { id = kv.Key, value = kv.Value });
-                    }
-
-                    wi.customFields = new ArrayOfCustom
-                    {
-                        Custom = existingFields.ToArray()
-                    };
+                    wi.customFields = MergeCustomFields(wi.customFields, customFieldMap);
                 }
 
                 // Write back.

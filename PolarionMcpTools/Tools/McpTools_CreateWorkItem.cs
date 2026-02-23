@@ -59,28 +59,16 @@ public sealed partial class McpTools
             return "ERROR: (101) title parameter cannot be empty.";
         }
 
-        // Parse custom fields (key=value lines)
-        var customFieldDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(customFields))
-        {
-            foreach (var line in customFields.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var eqIdx = line.IndexOf('=');
-                if (eqIdx <= 0)
-                {
-                    return $"ERROR: (102) Invalid custom field format '{line}'. Expected 'fieldName=value'.";
-                }
+        // Scope enforcement — write operation
+        var scopeEnforcer = _serviceProvider.GetRequiredService<IMcpScopeEnforcer>();
+        var scopeError = scopeEnforcer.CheckScope(PolarionApiScopes.Write);
+        if (scopeError != null) return scopeError;
 
-                var key = line[..eqIdx].Trim();
-                var val = line[(eqIdx + 1)..].Trim();
-                if (string.IsNullOrWhiteSpace(key))
-                {
-                    return $"ERROR: (103) Empty field name in custom fields at line '{line}'.";
-                }
-
-                customFieldDict[key] = val;
-            }
-        }
+        // Parse custom fields via shared helper
+        var parseResult = ParseCustomFields(customFields);
+        if (parseResult.IsFailed)
+            return $"ERROR: (102) {parseResult.Errors.First().Message}";
+        var customFieldDict = parseResult.Value;
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
@@ -144,13 +132,7 @@ public sealed partial class McpTools
                 // Set custom fields if provided
                 if (customFieldDict.Count > 0)
                 {
-                    newWorkItem.customFields = customFieldDict
-                        .Select(kvp => new Polarion.Custom
-                        {
-                            key = kvp.Key,
-                            value = new Polarion.StringType { value = kvp.Value }
-                        })
-                        .ToArray();
+                    newWorkItem.customFields = ToCustomFieldArray(customFieldDict);
                 }
 
                 // Call Polarion API to create the work item

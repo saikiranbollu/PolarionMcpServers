@@ -81,6 +81,11 @@ public sealed partial class McpTools
             return "ERROR: (103) sourceWorkitemId and targetWorkitemId cannot be the same work item.";
         }
 
+        // Scope enforcement — write operation
+        var scopeEnforcer = _serviceProvider.GetRequiredService<IMcpScopeEnforcer>();
+        var scopeError = scopeEnforcer.CheckScope(PolarionApiScopes.Write);
+        if (scopeError != null) return scopeError;
+
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();
@@ -231,6 +236,11 @@ public sealed partial class McpTools
         {
             return "ERROR: (102) linkRole cannot be empty.";
         }
+
+        // Scope enforcement — write operation
+        var scopeEnforcer2 = _serviceProvider.GetRequiredService<IMcpScopeEnforcer>();
+        var scopeError2 = scopeEnforcer2.CheckScope(PolarionApiScopes.Write);
+        if (scopeError2 != null) return scopeError2;
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {

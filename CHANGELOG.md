@@ -59,6 +59,15 @@
 - Both `PolarionStdioClientFactory` and `PolarionRemoteClientFactory` now use `GetEffectiveClientConfig()` and log authentication mode
 - `ApiScopes` — Replace `PolarionCreate`/`PolarionUpdate` with unified `PolarionWrite` scope; add `PolarionAdmin`
 
+### Fixed
+
+- Add missing `polarion:write` scope enforcement to `create_workitem`, `update_workitem`, `link_workitems`, and `unlink_workitems` tools
+- Wire `EnforceMcpScopes` project configuration flag into `HttpMcpScopeEnforcer` — previously declared but never read, now resolved via HTTP route to allow per-project opt-out
+- Fix sort direction ignored in `search_workitems_advanced` (MCP) and REST `WorkItemsEndpoints` — descending sort now reverses results via `Array.Reverse`
+- Harden API key authentication with `CryptographicOperations.FixedTimeEquals` to prevent timing-based side-channel attacks; reduce auth success log from Information to Debug
+- Normalize custom-field handling across `create_workitem`, `update_workitem`, and `bulk_update_workitems` — extract shared `ParseCustomFields`, `ToCustomFieldArray`, and `MergeCustomFields` helpers; fix BulkOperations using incorrect `Custom.id` (should be `.key`) and non-existent `ArrayOfCustom` type
+- Replace password-like literals in README examples with `<YOUR_PASSWORD_HERE>` placeholders
+
 ## 0.13.0
 
 ### Fixed

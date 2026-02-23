@@ -82,7 +82,7 @@ MCP Tools are available for Polarion work items, including:
               "SessionConfig": { 
                   "ServerUrl": "https://polarion.int.mycompany.com/",
                   "Username": "shared_user_read_only",
-                  "Password": "linear-Vietnam-FLIP-212824", 
+                  "Password": "<YOUR_PASSWORD_HERE>", 
                   "ProjectId": "Starlight_Main", 
                   "TimeoutSeconds": 60
               },
@@ -103,7 +103,7 @@ MCP Tools are available for Polarion work items, including:
               "SessionConfig": { 
                   "ServerUrl": "https://polarion.int.mycompany.com/",
                   "Username": "some_other_user",
-                  "Password": "linear-Vietnam-FLIP-212824", 
+                  "Password": "<YOUR_PASSWORD_HERE>", 
                   "ProjectId": "octopus_gov", 
                   "TimeoutSeconds": 60
               }
@@ -114,7 +114,7 @@ MCP Tools are available for Polarion work items, including:
               "SessionConfig": { 
                   "ServerUrl": "https://polarion-dev.int.mycompany.com/",
                   "Username": "vader",
-                  "Password": "12345", 
+                  "Password": "<YOUR_PASSWORD_HERE>", 
                   "ProjectId": "grogu_boss", 
                   "TimeoutSeconds": 60
               }

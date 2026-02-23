@@ -19,6 +19,7 @@
 // ============================================================
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using PolarionMcpTools;
 using Serilog;
 
@@ -32,10 +33,14 @@ namespace PolarionRemoteMcpServer.Authentication;
 public sealed class HttpMcpScopeEnforcer : IMcpScopeEnforcer
 {
     private readonly IHttpContextAccessor _httpContextAccessor;
+    private readonly List<PolarionProjectConfig> _projectConfigs;
 
-    public HttpMcpScopeEnforcer(IHttpContextAccessor httpContextAccessor)
+    public HttpMcpScopeEnforcer(
+        IHttpContextAccessor httpContextAccessor,
+        List<PolarionProjectConfig> projectConfigs)
     {
         _httpContextAccessor = httpContextAccessor;
+        _projectConfigs = projectConfigs;
     }
 
     /// <inheritdoc/>
@@ -48,6 +53,23 @@ public sealed class HttpMcpScopeEnforcer : IMcpScopeEnforcer
             // No HTTP context — deny by default (safe fallback).
             Log.Warning("MCP Scope Enforcer: No HTTP context present. Denying scope '{Scope}'.", requiredScope);
             return $"ERROR: (4031) Unauthorized. No HTTP context for scope check '{requiredScope}'.";
+        }
+
+        // Resolve the current project config and honour EnforceMcpScopes flag.
+        var routeAlias = context.GetRouteValue("projectId")?.ToString();
+        var projectConfig = !string.IsNullOrEmpty(routeAlias)
+            ? _projectConfigs.FirstOrDefault(p =>
+                  p.ProjectUrlAlias.Equals(routeAlias, StringComparison.OrdinalIgnoreCase))
+              ?? _projectConfigs.FirstOrDefault(p => p.Default)
+            : _projectConfigs.FirstOrDefault(p => p.Default);
+
+        if (projectConfig != null && !projectConfig.EnforceMcpScopes)
+        {
+            Log.Debug(
+                "MCP Scope Enforcer: Scope enforcement disabled (EnforceMcpScopes=false) " +
+                "for project '{ProjectAlias}'. Granting '{Scope}'.",
+                projectConfig.ProjectUrlAlias, requiredScope);
+            return null; // ✓ Bypassed by configuration.
         }
 
         var user = context.User;

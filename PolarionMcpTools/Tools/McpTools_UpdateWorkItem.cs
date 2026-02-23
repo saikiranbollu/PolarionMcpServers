@@ -60,6 +60,11 @@ public sealed partial class McpTools
             return "ERROR: (100) workitemId parameter cannot be empty.";
         }
 
+        // Scope enforcement — write operation
+        var scopeEnforcer = _serviceProvider.GetRequiredService<IMcpScopeEnforcer>();
+        var scopeError = scopeEnforcer.CheckScope(PolarionApiScopes.Write);
+        if (scopeError != null) return scopeError;
+
         // Check that at least one field is being updated
         var anyFieldProvided = !string.IsNullOrWhiteSpace(title)
                                || !string.IsNullOrWhiteSpace(description)
@@ -74,28 +79,11 @@ public sealed partial class McpTools
             return "ERROR: (101) At least one field must be provided to update (title, description, status, assignee, priority, severity, or customFields).";
         }
 
-        // Parse custom fields (key=value lines)
-        var customFieldDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(customFields))
-        {
-            foreach (var line in customFields.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
-            {
-                var eqIdx = line.IndexOf('=');
-                if (eqIdx <= 0)
-                {
-                    return $"ERROR: (102) Invalid custom field format '{line}'. Expected 'fieldName=value'.";
-                }
-
-                var key = line[..eqIdx].Trim();
-                var val = line[(eqIdx + 1)..].Trim();
-                if (string.IsNullOrWhiteSpace(key))
-                {
-                    return $"ERROR: (103) Empty field name in custom fields at line '{line}'.";
-                }
-
-                customFieldDict[key] = val;
-            }
-        }
+        // Parse custom fields via shared helper
+        var parseResult = ParseCustomFields(customFields);
+        if (parseResult.IsFailed)
+            return $"ERROR: (102) {parseResult.Errors.First().Message}";
+        var customFieldDict = parseResult.Value;
 
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
@@ -176,31 +164,13 @@ public sealed partial class McpTools
                 // Merge custom fields: update existing ones, add new ones
                 if (customFieldDict.Count > 0)
                 {
-                    var existingCustomFields = existingWorkItem.customFields?.ToList()
-                                              ?? new List<Polarion.Custom>();
+                    existingWorkItem.customFields = MergeCustomFields(
+                        existingWorkItem.customFields, customFieldDict);
 
                     foreach (var kvp in customFieldDict)
                     {
-                        var existingField = existingCustomFields
-                            .FirstOrDefault(f => string.Equals(f.key, kvp.Key, StringComparison.OrdinalIgnoreCase));
-
-                        if (existingField != null)
-                        {
-                            existingField.value = new Polarion.StringType { value = kvp.Value };
-                        }
-                        else
-                        {
-                            existingCustomFields.Add(new Polarion.Custom
-                            {
-                                key = kvp.Key,
-                                value = new Polarion.StringType { value = kvp.Value }
-                            });
-                        }
-
                         changes.Add($"custom:{kvp.Key} → {kvp.Value}");
                     }
-
-                    existingWorkItem.customFields = existingCustomFields.ToArray();
                 }
 
                 // Call Polarion API to persist changes
