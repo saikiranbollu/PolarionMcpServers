@@ -1,25 +1,21 @@
+using PolarionMcpTools;
+
 namespace PolarionRemoteMcpServer.Authentication;
 
 /// <summary>
 /// Defines the API scopes used for authorization.
 /// Register these in appsettings.json under
 /// ApiConsumers[*].AllowedScopes to grant access.
+/// Delegates to <see cref="PolarionApiScopes"/> (single source of truth)
+/// so scope strings are never duplicated.
 /// </summary>
 public static class ApiScopes
 {
-    // -------------------------------------------------------
-    // Read scope
-    // -------------------------------------------------------
-
     /// <summary>
     /// Scope for read operations on Polarion data.
     /// Grants access to all GET/search MCP tools and REST endpoints.
     /// </summary>
-    public const string PolarionRead   = "polarion:read";
-
-    // -------------------------------------------------------
-    // Write scope (NEW in v0.13.0)
-    // -------------------------------------------------------
+    public const string PolarionRead   = PolarionApiScopes.Read;
 
     /// <summary>
     /// Scope for write (create/update/mutate) operations on Polarion data.
@@ -29,29 +25,17 @@ public static class ApiScopes
     /// A consumer with polarion:write implicitly also needs
     /// polarion:read for lookups performed before mutations.
     /// </summary>
-    public const string PolarionWrite  = "polarion:write";
-
-    // -------------------------------------------------------
-    // Delete scope
-    // -------------------------------------------------------
+    public const string PolarionWrite  = PolarionApiScopes.Write;
 
     /// <summary>
     /// Scope for delete operations on Polarion data (future use).
     /// </summary>
     public const string PolarionDelete = "polarion:delete";
 
-    // -------------------------------------------------------
-    // Admin scope (NEW in v0.13.0)
-    // -------------------------------------------------------
-
     /// <summary>
     /// Admin-level scope for privileged operations (future use).
     /// </summary>
-    public const string PolarionAdmin  = "polarion:admin";
-
-    // -------------------------------------------------------
-    // Aggregate
-    // -------------------------------------------------------
+    public const string PolarionAdmin  = PolarionApiScopes.Admin;
 
     /// <summary>
     /// All available scopes — used when registering authorization

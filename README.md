@@ -70,7 +70,7 @@ MCP Tools are available for Polarion work items, including:
            "Name": "My Application",
            "ApplicationKey": "your-secure-api-key-here",
            "Active": true,
-           "AllowedScopes": ["polarion:read"],
+           "AllowedScopes": ["polarion:read", "polarion:write"],
            "Description": "API consumer for my application"
          }
        }
@@ -213,7 +213,7 @@ REST API endpoints require authentication via API key. Configure API consumers i
 | `Name` | Display name for the API consumer | Yes |
 | `ApplicationKey` | The API key used for authentication | Yes |
 | `Active` | Whether the consumer is allowed to authenticate | Yes |
-| `AllowedScopes` | List of scopes (e.g., `["polarion:read"]`) | Yes |
+| `AllowedScopes` | List of scopes (e.g., `["polarion:read", "polarion:write"]`) | Yes |
 | `Description` | Optional description of the consumer | No |
 
 **Available Scopes:**

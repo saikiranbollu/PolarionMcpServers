@@ -67,6 +67,10 @@
 - Harden API key authentication with `CryptographicOperations.FixedTimeEquals` to prevent timing-based side-channel attacks; reduce auth success log from Information to Debug
 - Normalize custom-field handling across `create_workitem`, `update_workitem`, and `bulk_update_workitems` — extract shared `ParseCustomFields`, `ToCustomFieldArray`, and `MergeCustomFields` helpers; fix BulkOperations using incorrect `Custom.id` (should be `.key`) and non-existent `ArrayOfCustom` type
 - Replace password-like literals in README examples with `<YOUR_PASSWORD_HERE>` placeholders
+- Delete empty dead file `PolarionMcpApp.cs` (0 bytes, never used)
+- Add `polarion:read` scope enforcement to `search_workitems` and `search_workitems_advanced` for consistency with other read tools
+- Update README example `AllowedScopes` to include `polarion:write` alongside `polarion:read` so new users can use write tools out of the box
+- Unify duplicate scope constants: `ApiScopes` (remote server) now delegates to `PolarionApiScopes` (shared library) to prevent value drift
 
 ## 0.13.0
 

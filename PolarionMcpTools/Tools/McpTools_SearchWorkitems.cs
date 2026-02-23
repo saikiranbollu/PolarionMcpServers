@@ -43,6 +43,11 @@ public sealed partial class McpTools
             return $"ERROR: (104) Invalid sortBy value '{sortBy}'. Must be one of: {string.Join(", ", validSortFields)}.";
         }
 
+        // Scope enforcement
+        var scopeEnforcer = _serviceProvider.GetRequiredService<IMcpScopeEnforcer>();
+        var scopeError = scopeEnforcer.CheckScope(PolarionApiScopes.Read);
+        if (scopeError != null) return scopeError;
+
         await using (var scope = _serviceProvider.CreateAsyncScope())
         {
             var clientFactory = scope.ServiceProvider.GetRequiredService<IPolarionClientFactory>();

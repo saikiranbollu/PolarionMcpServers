@@ -97,6 +97,11 @@ public sealed partial class McpTools
         if (maxResults < 1) maxResults = 1;
         if (maxResults > 500) maxResults = 500;
 
+        // Scope enforcement
+        var scopeEnforcer = _serviceProvider.GetRequiredService<IMcpScopeEnforcer>();
+        var scopeError = scopeEnforcer.CheckScope(PolarionApiScopes.Read);
+        if (scopeError != null) return scopeError;
+
         // Reject dangerous query patterns that cause Polarion parse errors
         // (leading wildcards are not supported)
         if (luceneQuery.TrimStart().StartsWith("*"))
