@@ -121,11 +121,11 @@ public sealed partial class McpTools
                 var targetWorkItem = targetResult.Value;
 
                 // Check for duplicate link (avoid creating the same link twice)
-                var existingLinks = sourceWorkItem.linkedWorkItems ?? Array.Empty<Polarion.LinkedWorkItem>();
+                var existingLinks = sourceWorkItem.linkedWorkItems ?? Array.Empty<LinkedWorkItem>();
                 var duplicateExists = existingLinks.Any(link =>
                 {
                     var linkedId = link.workItemURI?.Split("${WorkItem}").LastOrDefault() ?? "";
-                    var roleId = (link.role as Polarion.EnumOptionId)?.id ?? link.role?.ToString() ?? "";
+                    var roleId = (link.role as EnumOptionId)?.id ?? link.role?.ToString() ?? "";
                     return string.Equals(linkedId, targetWorkitemId, StringComparison.OrdinalIgnoreCase)
                            && string.Equals(roleId, linkRole, StringComparison.OrdinalIgnoreCase);
                 });
@@ -138,10 +138,10 @@ public sealed partial class McpTools
                 }
 
                 // Build the LinkedWorkItem structure for the SOAP call
-                var linkedWorkItem = new Polarion.LinkedWorkItem
+                var linkedWorkItem = new LinkedWorkItem
                 {
                     workItemURI = targetWorkItem.uri,
-                    role = new Polarion.EnumOptionId { id = linkRole },
+                    role = new EnumOptionId { id = linkRole },
                     suspect = false,
                     suspectSpecified = true
                 };
@@ -168,10 +168,10 @@ public sealed partial class McpTools
                 if (createReverseLink)
                 {
                     var reverseRole = GetReverseRole(linkRole);
-                    var reverseLinkedWorkItem = new Polarion.LinkedWorkItem
+                    var reverseLinkedWorkItem = new LinkedWorkItem
                     {
                         workItemURI = sourceWorkItem.uri,
-                        role = new Polarion.EnumOptionId { id = reverseRole },
+                        role = new EnumOptionId { id = reverseRole },
                         suspect = false,
                         suspectSpecified = true
                     };
@@ -275,11 +275,11 @@ public sealed partial class McpTools
                 var targetWorkItem = targetResult.Value;
 
                 // Check the link actually exists before attempting removal
-                var existingLinks = sourceWorkItem.linkedWorkItems ?? Array.Empty<Polarion.LinkedWorkItem>();
+                var existingLinks = sourceWorkItem.linkedWorkItems ?? Array.Empty<LinkedWorkItem>();
                 var linkExists = existingLinks.Any(link =>
                 {
                     var linkedId = link.workItemURI?.Split("${WorkItem}").LastOrDefault() ?? "";
-                    var roleId = (link.role as Polarion.EnumOptionId)?.id ?? link.role?.ToString() ?? "";
+                    var roleId = (link.role as EnumOptionId)?.id ?? link.role?.ToString() ?? "";
                     return string.Equals(linkedId, targetWorkitemId, StringComparison.OrdinalIgnoreCase)
                            && string.Equals(roleId, linkRole, StringComparison.OrdinalIgnoreCase);
                 });
@@ -291,10 +291,10 @@ public sealed partial class McpTools
                 }
 
                 // Build the LinkedWorkItem for removal
-                var linkedWorkItemToRemove = new Polarion.LinkedWorkItem
+                var linkedWorkItemToRemove = new LinkedWorkItem
                 {
                     workItemURI = targetWorkItem.uri,
-                    role = new Polarion.EnumOptionId { id = linkRole }
+                    role = new EnumOptionId { id = linkRole }
                 };
 
                 // Call Polarion API to remove the link

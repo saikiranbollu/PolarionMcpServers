@@ -153,7 +153,7 @@ public sealed partial class McpTools
                     wi.status = new EnumOptionId { id = status.Trim() };
 
                 if (!string.IsNullOrWhiteSpace(priority))
-                    wi.priority = new EnumOptionId { id = priority.Trim() };
+                    wi.priority = new PriorityOptionId { id = priority.Trim() };
 
                 if (!string.IsNullOrWhiteSpace(severity))
                     wi.severity = new EnumOptionId { id = severity.Trim() };

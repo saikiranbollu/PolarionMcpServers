@@ -219,7 +219,7 @@ public sealed partial class McpTools
     // Helper: Format results as Markdown
     // -------------------------------------------------------------------------
     private static string FormatAdvancedSearchResults(
-        Polarion.WorkItem[] workItems,
+        WorkItem[] workItems,
         string query,
         int maxResults,
         string sortBy,

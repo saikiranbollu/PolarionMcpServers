@@ -84,10 +84,48 @@ public class Program
                     proj.ProjectUrlAlias, proj.SessionConfig!.ServerUrl, proj.Default);
             }
 
+            // Allow overriding usernames via environment variables.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_USERNAME  (alias normalized to [A-Z0-9_])
+            //  - POLARION_USERNAME           (fallback for all projects)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+                    var userEnvName = $"POLARION_{norm}_USERNAME";
+                    var userEnvVal = Environment.GetEnvironmentVariable(userEnvName);
+                    if (string.IsNullOrEmpty(userEnvVal))
+                    {
+                        userEnvVal = Environment.GetEnvironmentVariable("POLARION_USERNAME");
+                        userEnvName = "POLARION_USERNAME";
+                    }
+
+                    if (!string.IsNullOrEmpty(userEnvVal))
+                    {
+                        if (proj.SessionConfig != null)
+                        {
+                            proj.SessionConfig.Username = userEnvVal;
+                            Log.Information("Overrode SessionConfig.Username for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, userEnvName);
+                        }
+                        else
+                        {
+                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Username override skipped.", userEnvName, alias);
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion usernames from environment variables.");
+            }
+
             // Allow overriding Polarion passwords via environment variables.
             // Supported env var names:
             //  - POLARION_{ALIAS}_PASSWORD  (alias normalized to [A-Z0-9_])
-            //  - POLARION_PASSWORD           (applies to the project marked Default)
+            //  - POLARION_PASSWORD           (fallback for all projects)
             try
             {
                 foreach (var proj in polarionProjects)
@@ -97,7 +135,7 @@ public class Program
                     var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
                     var envName = $"POLARION_{norm}_PASSWORD";
                     var envVal = Environment.GetEnvironmentVariable(envName);
-                    if (string.IsNullOrEmpty(envVal) && proj.Default)
+                    if (string.IsNullOrEmpty(envVal))
                     {
                         envVal = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
                         envName = "POLARION_PASSWORD";

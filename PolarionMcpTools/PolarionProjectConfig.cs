@@ -140,14 +140,12 @@ namespace PolarionMcpTools
 
             // PAT is present: create a modified copy where Password = PAT.
             // Polarion SOAP logIn(username, password) accepts PAT as password.
-            return new PolarionClientConfiguration
-            {
-                ServerUrl      = SessionConfig.ServerUrl,
-                Username       = SessionConfig.Username,
-                Password       = pat,   // ← PAT substituted here
-                ProjectId      = SessionConfig.ProjectId,
-                TimeoutSeconds = SessionConfig.TimeoutSeconds
-            };
+            return new PolarionClientConfiguration(
+                SessionConfig.ServerUrl,
+                SessionConfig.Username,
+                pat,   // ← PAT substituted here
+                SessionConfig.ProjectId,
+                SessionConfig.TimeoutSeconds);
         }
     }
 }

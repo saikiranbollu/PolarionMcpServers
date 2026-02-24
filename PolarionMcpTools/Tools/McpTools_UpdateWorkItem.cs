@@ -126,12 +126,11 @@ public sealed partial class McpTools
 
                 if (!string.IsNullOrWhiteSpace(description))
                 {
-                    existingWorkItem.description = new Polarion.Text
+                    existingWorkItem.description = new Text
                     {
                         content = description,
                         type = "text/html",
-                        contentLossy = false,
-                        contentLossySpecified = true
+                        contentLossy = false
                     };
                     changes.Add("description updated");
                 }
@@ -139,25 +138,25 @@ public sealed partial class McpTools
                 if (!string.IsNullOrWhiteSpace(status))
                 {
                     var previousStatus = existingWorkItem.status?.id ?? "N/A";
-                    existingWorkItem.status = new Polarion.EnumOptionId { id = status };
+                    existingWorkItem.status = new EnumOptionId { id = status };
                     changes.Add($"status: {previousStatus} → {status}");
                 }
 
                 if (!string.IsNullOrWhiteSpace(assignee))
                 {
-                    existingWorkItem.assignee = new[] { new Polarion.User { id = assignee } };
+                    existingWorkItem.assignee = new[] { new User { id = assignee } };
                     changes.Add($"assignee → {assignee}");
                 }
 
                 if (!string.IsNullOrWhiteSpace(priority))
                 {
-                    existingWorkItem.priority = new Polarion.EnumOptionId { id = priority };
+                    existingWorkItem.priority = new PriorityOptionId { id = priority };
                     changes.Add($"priority → {priority}");
                 }
 
                 if (!string.IsNullOrWhiteSpace(severity))
                 {
-                    existingWorkItem.severity = new Polarion.EnumOptionId { id = severity };
+                    existingWorkItem.severity = new EnumOptionId { id = severity };
                     changes.Add($"severity → {severity}");
                 }
 

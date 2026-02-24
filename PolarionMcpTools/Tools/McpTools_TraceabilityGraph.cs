@@ -133,9 +133,9 @@ public sealed partial class McpTools
 
             // ---- Outgoing links (this WI → linked) ---
             if ((direction == "outgoing" || direction == "both")
-                && wi.linkedWorkItems?.linkedWorkItem != null)
+                && wi.linkedWorkItems != null)
             {
-                foreach (var link in wi.linkedWorkItems.linkedWorkItem)
+                foreach (var link in wi.linkedWorkItems)
                 {
                     var role = Utils.PolarionValueToString(link.role, markdownConverter)
                                ?? "linked";
@@ -154,9 +154,9 @@ public sealed partial class McpTools
 
             // ---- Incoming links (linked → this WI) ---
             if ((direction == "incoming" || direction == "both")
-                && wi.linkedWorkItemsDerived?.linkedWorkItem != null)
+                && wi.linkedWorkItemsDerived != null)
             {
-                foreach (var link in wi.linkedWorkItemsDerived.linkedWorkItem)
+                foreach (var link in wi.linkedWorkItemsDerived)
                 {
                     var role = Utils.PolarionValueToString(link.role, markdownConverter)
                                ?? "linked";

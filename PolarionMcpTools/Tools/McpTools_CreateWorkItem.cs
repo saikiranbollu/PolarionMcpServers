@@ -93,40 +93,39 @@ public sealed partial class McpTools
             try
             {
                 // Build WorkItem object for creation
-                var newWorkItem = new Polarion.WorkItem
+                var newWorkItem = new WorkItem
                 {
                     title = title,
-                    type = new Polarion.EnumOptionId { id = workitemType },
+                    type = new EnumOptionId { id = workitemType },
                 };
 
                 // Set description if provided
                 if (!string.IsNullOrWhiteSpace(description))
                 {
-                    newWorkItem.description = new Polarion.Text
+                    newWorkItem.description = new Text
                     {
                         content = description,
                         type = "text/html",
-                        contentLossy = false,
-                        contentLossySpecified = true
+                        contentLossy = false
                     };
                 }
 
                 // Set assignee if provided
                 if (!string.IsNullOrWhiteSpace(assignee))
                 {
-                    newWorkItem.assignee = new[] { new Polarion.User { id = assignee } };
+                    newWorkItem.assignee = new[] { new User { id = assignee } };
                 }
 
                 // Set priority if provided
                 if (!string.IsNullOrWhiteSpace(priority))
                 {
-                    newWorkItem.priority = new Polarion.EnumOptionId { id = priority };
+                    newWorkItem.priority = new PriorityOptionId { id = priority };
                 }
 
                 // Set severity if provided
                 if (!string.IsNullOrWhiteSpace(severity))
                 {
-                    newWorkItem.severity = new Polarion.EnumOptionId { id = severity };
+                    newWorkItem.severity = new EnumOptionId { id = severity };
                 }
 
                 // Set custom fields if provided

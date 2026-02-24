@@ -58,7 +58,8 @@ public static class PolarionClientWriteExtensions
             // The SOAP createWorkItem uses the WorkItem's project field.
             workItem.project = new Project { id = projectId };
 
-            var response = await client.TrackerService.createWorkItemAsync(workItem);
+            var response = await client.TrackerService.createWorkItemAsync(
+                new createWorkItemRequest { content = workItem });
             var uri = response?.createWorkItemReturn;
 
             if (string.IsNullOrEmpty(uri))
@@ -97,7 +98,8 @@ public static class PolarionClientWriteExtensions
                     "WorkItem URI is not set. Fetch the work item first using GetWorkItemByIdAsync to obtain its URI.");
             }
 
-            await client.TrackerService.updateWorkItemAsync(workItem);
+            await client.TrackerService.updateWorkItemAsync(
+                new updateWorkItemRequest { content = workItem });
             return Result.Ok();
         }
         catch (Exception ex)
@@ -138,12 +140,14 @@ public static class PolarionClientWriteExtensions
                 return Result.Fail("Link role must be specified as an EnumOptionId with a non-empty id.");
             }
 
-            // The SOAP method takes 3 separate parameters (URI, URI, role),
-            // not a LinkedWorkItem object directly
+            // The SOAP method takes a request wrapper with URI, URI, and role fields
             await client.TrackerService.addLinkedItemAsync(
-                sourceWorkItemUri,
-                linkedWorkItem.workItemURI,
-                role);
+                new addLinkedItemRequest
+                {
+                    workitemURI       = sourceWorkItemUri,
+                    linkedWorkitemURI = linkedWorkItem.workItemURI,
+                    role              = role
+                });
 
             return Result.Ok();
         }
@@ -185,11 +189,14 @@ public static class PolarionClientWriteExtensions
                 return Result.Fail("Link role must be specified.");
             }
 
-            // The SOAP method takes 3 separate parameters
+            // The SOAP method takes a request wrapper with URI, URI, and role fields
             await client.TrackerService.removeLinkedItemAsync(
-                sourceWorkItemUri,
-                linkedWorkItem.workItemURI,
-                role);
+                new removeLinkedItemRequest
+                {
+                    workitemURI   = sourceWorkItemUri,
+                    linkedItemURI = linkedWorkItem.workItemURI,
+                    role          = role
+                });
 
             return Result.Ok();
         }
@@ -258,7 +265,8 @@ public static class PolarionClientWriteExtensions
                     $"Work item '{workItemId}' has no URI.");
             }
 
-            var response = await client.TrackerService.getAvailableActionsAsync(workItem.uri);
+            var response = await client.TrackerService.getAvailableActionsAsync(
+                new getAvailableActionsRequest { workitemURI = workItem.uri });
             var actions = response?.getAvailableActionsReturn;
 
             if (actions == null || actions.Length == 0)
@@ -324,7 +332,8 @@ public static class PolarionClientWriteExtensions
             else
             {
                 // Resolve the native string action ID to the SOAP int.
-                var actionsResponse = await client.TrackerService.getAvailableActionsAsync(workItem.uri);
+                var actionsResponse = await client.TrackerService.getAvailableActionsAsync(
+                    new getAvailableActionsRequest { workitemURI = workItem.uri });
                 var actions = actionsResponse?.getAvailableActionsReturn;
 
                 if (actions == null || actions.Length == 0)
@@ -350,7 +359,8 @@ public static class PolarionClientWriteExtensions
                 soapActionId = match.actionId;
             }
 
-            await client.TrackerService.performWorkflowActionAsync(workItem.uri, soapActionId);
+            await client.TrackerService.performWorkflowActionAsync(
+                new performWorkflowActionRequest { workitemURI = workItem.uri, actionId = soapActionId });
             return Result.Ok();
         }
         catch (Exception ex)
@@ -402,7 +412,8 @@ public static class PolarionClientWriteExtensions
                 contentLossy = false
             };
 
-            await client.TrackerService.addCommentAsync(workItem.uri, commentTitle, content);
+            await client.TrackerService.addCommentAsync(
+                new addCommentRequest { parentObjectUri = workItem.uri, title = commentTitle, content = content });
             return Result.Ok();
         }
         catch (Exception ex)
