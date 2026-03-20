@@ -1,0 +1,175 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index aa4776a..c91ae38 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -49,7 +49,7 @@ python build.py mcp call get_workitems_in_module '{"space": "MySpace", "document
+ 
+ **Available project aliases:** Configured in `appsettings.json` PolarionProjects array, overridden by `appsettings.Development.json` when running locally (default from appsettings or POLARION_DEFAULT_PROJECT env var)
+ 
+-**Note:** Use double quotes for JSON argument keys/values on Windows. If tools error with authentication failures, check that credentials are configured in `PolarionRemoteMcpServer/appsettings.Development.json` (or `appsettings.json` for production).
++**Note:** Use double quotes for JSON argument keys/values on Windows. If tools error with authentication failures, check that credentials are configured in `PolarionRemoteMcpServer/appsettings.Development.json` (or `appsettings.json` for production). For better security, use personal token environment variables: `POLARION_PERSONAL_TOKEN` for the default project or `POLARION_{ALIAS}_PERSONAL_TOKEN` for specific projects.
+ 
+ ### REST API Commands
+ 
+diff --git a/PolarionMcpServer/Program.cs b/PolarionMcpServer/Program.cs
+index fa7a481..d944caa 100644
+--- a/PolarionMcpServer/Program.cs
++++ b/PolarionMcpServer/Program.cs
+@@ -112,7 +112,7 @@ public class Program
+ 
+             // Make environment variables available to the configuration binder as well.
+             // This allows overrides like PolarionProjects__0__SessionConfig__Password if you prefer
+-            // to use the built-in configuration binding naming convention.
++            // to use the built-in configuration binding naming convention (though POLARION_PERSONAL_TOKEN is recommended).
+             builder.Configuration.AddEnvironmentVariables();
+ 
+             if (!string.IsNullOrEmpty(configPath))
+@@ -186,10 +186,10 @@ public class Program
+             
+ 
+             
+-            // Allow overriding passwords via environment variables.
++            // Allow overriding credentials via environment variables using personal tokens.
+             // Supported env var names:
+-            //  - POLARION_{ALIAS}_PASSWORD  (alias normalized to [A-Z0-9_] )
+-            //  - POLARION_PASSWORD  (applies to the project marked Default)
++            //  - POLARION_{ALIAS}_PERSONAL_TOKEN  (alias normalized to [A-Z0-9_] )
++            //  - POLARION_PERSONAL_TOKEN  (applies to the project marked Default)
+             try
+             {
+                 foreach (var proj in polarionProjects)
+@@ -198,12 +198,12 @@ public class Program
+                     var alias = proj.ProjectUrlAlias ?? string.Empty;
+                     // Normalize alias to upper-case letters, digits and underscores
+                     var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+-                    var envName = $"POLARION_{norm}_PASSWORD";
++                    var envName = $"POLARION_{norm}_PERSONAL_TOKEN";
+                     var envVal = Environment.GetEnvironmentVariable(envName);
+                     if (string.IsNullOrEmpty(envVal) && proj.Default)
+                     {
+-                        envVal = Environment.GetEnvironmentVariable("POLARION_PASSWORD");
+-                        envName = "POLARION_PASSWORD";
++                        envVal = Environment.GetEnvironmentVariable("POLARION_PERSONAL_TOKEN");
++                        envName = "POLARION_PERSONAL_TOKEN";
+                     }
+ 
+                     if (!string.IsNullOrEmpty(envVal))
+@@ -211,18 +211,18 @@ public class Program
+                         if (proj.SessionConfig != null)
+                         {
+                             proj.SessionConfig.Password = envVal;
+-                            Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, envName);
++                            Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from personal token env var '{EnvVarName}'", alias, envName);
+                         }
+                         else
+                         {
+-                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Password override skipped.", envName, alias);
++                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Personal token override skipped.", envName, alias);
+                         }
+                     }
+                 }
+             }
+             catch (Exception ex)
+             {
+-                Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
++                Log.Warning(ex, "Error while attempting to override Polarion credentials from environment variables.");
+             }
+ 
+             
+diff --git a/PolarionRemoteMcpServer/Program.cs b/PolarionRemoteMcpServer/Program.cs
+index e9b4707..6808a2c 100644
+--- a/PolarionRemoteMcpServer/Program.cs
++++ b/PolarionRemoteMcpServer/Program.cs
+@@ -1,6 +1,7 @@
+ using System.Diagnostics.CodeAnalysis;
+ using System.Reflection;
+ using System.Text.Json;
++using System.Text.RegularExpressions;
+ using Microsoft.AspNetCore.Http;
+ using Microsoft.AspNetCore.HttpOverrides;
+ using Microsoft.OpenApi.Models;
+@@ -84,6 +85,45 @@ public class Program
+             }
+             
+ 
++            // Allow overriding credentials via environment variables using personal tokens.
++            // Supported env var names:
++            //  - POLARION_{ALIAS}_PERSONAL_TOKEN  (alias normalized to [A-Z0-9_] )
++            //  - POLARION_PERSONAL_TOKEN  (applies to the project marked Default)
++            try
++            {
++                foreach (var proj in polarionProjects)
++                {
++                    if (proj == null) continue;
++                    var alias = proj.ProjectUrlAlias ?? string.Empty;
++                    // Normalize alias to upper-case letters, digits and underscores
++                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
++                    var envName = $"POLARION_{norm}_PERSONAL_TOKEN";
++                    var envVal = Environment.GetEnvironmentVariable(envName);
++                    if (string.IsNullOrEmpty(envVal) && proj.Default)
++                    {
++                        envVal = Environment.GetEnvironmentVariable("POLARION_PERSONAL_TOKEN");
++                        envName = "POLARION_PERSONAL_TOKEN";
++                    }
++
++                    if (!string.IsNullOrEmpty(envVal))
++                    {
++                        if (proj.SessionConfig != null)
++                        {
++                            proj.SessionConfig.Password = envVal;
++                            Log.Information("Overrode SessionConfig.Password for project '{ProjectAlias}' from personal token env var '{EnvVarName}'", alias, envName);
++                        }
++                        else
++                        {
++                            Log.Warning("Found environment variable '{EnvVarName}' but SessionConfig is null for project '{ProjectAlias}'. Personal token override skipped.", envName, alias);
++                        }
++                    }
++                }
++            }
++            catch (Exception ex)
++            {
++                Log.Warning(ex, "Error while attempting to override Polarion credentials from environment variables.");
++            }
++
+             // Add Serilog
+             //
+             builder.Services.AddSerilog();
+diff --git a/README.md b/README.md
+index 2246cc0..6962acc 100644
+--- a/README.md
++++ b/README.md
+@@ -156,11 +156,32 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
+ | -------------- | ------------------------------------------------------------------- | -------- | ------- |
+ | `ServerUrl`    | URL of the Polarion server (e.g., "https://polarion.example.com/")  | Yes      | N/A     |
+ | `Username`     | Polarion username with appropriate permissions.                     | Yes      | N/A     |
+-| `Password`     | Password for the Polarion user. **(Consider secure alternatives)**    | Yes      | N/A     |
++| `Password`     | Password or personal token for the Polarion user. **(Use environment variables for better security)**    | Yes      | N/A     |
+ | `ProjectId`    | The *actual* ID of the Polarion project to interact with.           | Yes      | N/A     |
+ | `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
+ 
+-*Note: It is strongly recommended to use more secure methods for storing credentials (like User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
++#### Secure Credential Configuration
++
++**🔐 Recommended: Use Environment Variables for Personal Tokens**
++
++Instead of hardcoding credentials in `appsettings.json`, use environment variables:
++
++- `POLARION_PERSONAL_TOKEN` - Personal token for the default project
++- `POLARION_{ALIAS}_PERSONAL_TOKEN` - Personal token for specific project alias (alias normalized to uppercase with underscores)
++
++Example:
++```bash
++# For default project
++export POLARION_PERSONAL_TOKEN="your-personal-token-here"
++
++# For specific project aliases
++export POLARION_STARLIGHT_PERSONAL_TOKEN="your-starlight-token"
++export POLARION_OCTOPUS_PERSONAL_TOKEN="your-octopus-token"
++```
++
++When environment variables are set, they will override the `Password` field in the configuration file.
++
++*Note: Personal tokens are more secure than passwords and support fine-grained permissions. It is strongly recommended to use personal tokens with environment variables rather than storing passwords in configuration files.*
+ 
+ ### API Key Authentication (REST API Only)
+ 

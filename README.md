@@ -171,7 +171,7 @@ The server uses a `PolarionProjects` array in `appsettings.json` to define one o
 | -------------- | ------------------------------------------------------------------- | -------- | ------- |
 | `ServerUrl`    | URL of the Polarion server (e.g., "https://polarion.example.com/")  | Yes      | N/A     |
 | `Username`     | Polarion username with appropriate permissions.                     | Yes      | N/A     |
-| `Password`     | Password for the Polarion user. **(Consider secure alternatives)**    | Yes*     | N/A     |
+| `Password`     | Password or personal token for the Polarion user. **(Use environment variables for better security)**    | Yes      | N/A     |
 | `ProjectId`    | The *actual* ID of the Polarion project to interact with.           | Yes      | N/A     |
 | `TimeoutSeconds` | Connection timeout in seconds.                                      | No       | `60`    |
 
@@ -201,7 +201,29 @@ export POLARION_STARLIGHT_PAT="eyJhbGci..."     # For project with alias "starli
 export POLARION_PAT="eyJhbGci..."                  # Fallback for default project
 ```
 
-*Note: It is strongly recommended to use environment variables or other secure methods (User Secrets, Azure Key Vault, etc.) rather than placing plain text passwords in `appsettings.json`.*
+#### Secure Credential Configuration
+
+**🔐 Recommended: Use Environment Variables for Personal Tokens**
+
+Instead of hardcoding credentials in `appsettings.json`, use environment variables:
+
+- `POLARION_PERSONAL_TOKEN` - Personal token for the default project
+- `POLARION_{ALIAS}_PERSONAL_TOKEN` - Personal token for specific project alias (alias normalized to uppercase with underscores)
+
+Example:
+```bash
+# For default project
+export POLARION_PERSONAL_TOKEN="your-personal-token-here"
+
+# For specific project aliases
+export POLARION_STARLIGHT_PERSONAL_TOKEN="your-starlight-token"
+export POLARION_OCTOPUS_PERSONAL_TOKEN="your-octopus-token"
+```
+
+When environment variables are set, they will override the `Password` field in the configuration file.
+
+*Note: Personal tokens are more secure than passwords and support fine-grained permissions. It is strongly recommended to use personal tokens with environment variables rather than storing passwords in configuration files.*
+ 
 
 ### API Key Authentication (REST API Only)
 
@@ -316,3 +338,12 @@ For developers who want to contribute or build from source, see [CONTRIBUTING.md
 ## License
 
 See [LICENSE](LICENSE) for details.
+
+## create exe
+dotnet publish PolarionMcpServer/PolarionMcpServer.csproj -c Release -r win-x64 --self-contained true
+
+ [System.Environment]::SetEnvironmentVariable("POLARION_PAT", "eyJraWQiOiIzNjQ5ODhkZC0wYWExMWYwNi03YmY1YzgyMi1hYmU2NWM1MiIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJib2xsdXNhaSIsImlkIjoiZWFkOThiNmQtMGFhMTFjNTctNTM3MTJhOWMtMWRmOGUwZjkiLCJleHAiOjE4ODQwMTg2MDAsImlhdCI6MTc3MzQ2NjY1MX0.fxT4QDffn0jnq1-ptUFeKMmnmXjjw6STOwi65y6iH-QEQlhVAoi7zGx26dyJ274TkfmFYlLn6xVizDuyWp6RiRcDkn4ERUdOlNggFPSFlMRki2KYZigNVVSNAm-vgtp4v_s1Bh790eWeqj7iqvttw5MMPcXf3P8CPxxN9CI5M5QGhWL68PkZhbga4C0ieWX6pQ1falsPY_S2QjEuED6sOGVhJMLJ0sRKBclMZjHaA2RKc5v82z6Xt2IkmYLO6DwjIDGv4ilkx8NjPBgjMI35hpgM2dFg3FbtKWo-Zno_nfI_ALIRkhFOtAAH1U7eUzuigo3vdjAiIx1AcqlEBnPUig", "User")
+
+ [System.Environment]::SetEnvironmentVariable("POLARION_PAT", "eyJraWQiOiIxZmUzMTU2NS0wYWExMWZkMy00MzE1ZDI4Yy0zNTFhZDE2OSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJib2xsdXNhaSIsImlkIjoiMGIxY2E5NjYtMGFhMTFmMjUtNWRlZWExNzgtMjMwYzJkZDMiLCJleHAiOjE4Njk1MDM0MDAsImlhdCI6MTc3NDAwNzkyMH0.luMmAmiILmsnx5oMLsQ23o0MN3U45OWhjaFoDvpeVynSCvePwVpegSSwytk7kAf3QrilWMMj2oTCn-ZsZPt0KQsrjpzBuJoZb4GkPrJngp6ic-RgHqI12TV47oQmw-S5ul0cy4orcwiIhg-z0eVAP3r6YYqCJtAwudSLuEmC-PEDT8hGpv63Xcddm0rS3VB5x0aR7dd2aWNgJatc7e8Rr2Hqa6UqgRB-_fWQHFgGZQW9gZdajFJvgXYXiDNFNcYu9LFSQlgy8obd0MglB8RJiio-bOnksBZlAd85gEumGgnJtLqm61OsR7zKNjzs5Pl7QNkyt9aXsPv_oZCicoHvIQ", "User")
+
+ 

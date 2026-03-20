@@ -16,6 +16,11 @@
 //   GetAvailableWorkflowActionsAsync   → trackerService.getAvailableActionsAsync(workitemURI)
 //   PerformWorkflowActionAsync         → trackerService.performWorkflowActionAsync(workitemURI, actionId)
 //   AddCommentAsync                    → trackerService.addCommentAsync(parentObjectUri, title, content)
+//   GetWorkItemApprovalsAsync          → client.GetWorkItemByIdAsync(id) → workItem.approvals
+//   GetAllowedApproversAsync           → trackerService.getAllowedApproversAsync(workitemURI)
+//   AddApproveeAsync                   → trackerService.addApproveeAsync(workitemURI, approveeId)
+//   EditApprovalAsync                  → trackerService.editApprovalAsync(workitemURI, approveeId, status)
+//   RemoveApproveeAsync                → trackerService.removeApproveeAsync(workitemURI, approveeId)
 // ============================================================================
 
 namespace PolarionMcpTools;
@@ -420,6 +425,214 @@ public static class PolarionClientWriteExtensions
         {
             return Result.Fail(
                 $"Failed to add comment to '{workItemId}': {ex.Message}");
+        }
+    }
+
+    // =========================================================================
+    // Approval Extensions
+    // =========================================================================
+
+    /// <summary>
+    /// Retrieves the list of approvals for a work item by fetching the work item with the approvals field.
+    /// </summary>
+    /// <param name="client">The Polarion client instance.</param>
+    /// <param name="workItemId">The work item ID (e.g., "REQ-1234").</param>
+    /// <returns>A <c>Result&lt;Approval[]&gt;</c> with the approvals (may be empty).</returns>
+    [RequiresUnreferencedCode("Uses WCF services which require reflection")]
+    public static async Task<Result<Approval[]>> GetWorkItemApprovalsAsync(
+        this IPolarionClient client,
+        string workItemId)
+    {
+        try
+        {
+            var wiResult = await client.GetWorkItemByIdAsync(workItemId);
+            if (wiResult.IsFailed)
+            {
+                return Result.Fail<Approval[]>(
+                    $"Could not fetch work item '{workItemId}': {wiResult.Errors.FirstOrDefault()?.Message}");
+            }
+
+            var workItem = wiResult.Value;
+            if (workItem == null)
+            {
+                return Result.Fail<Approval[]>($"Work item '{workItemId}' not found.");
+            }
+
+            return Result.Ok(workItem.approvals ?? Array.Empty<Approval>());
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail<Approval[]>(
+                $"Failed to get approvals for '{workItemId}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Retrieves the list of users allowed to approve a work item.
+    /// Wraps <c>TrackerWebService.getAllowedApproversAsync(workitemURI)</c>.
+    /// </summary>
+    /// <param name="client">The Polarion client instance.</param>
+    /// <param name="workItemId">The work item ID (e.g., "REQ-1234").</param>
+    /// <returns>A <c>Result&lt;User[]&gt;</c> with the allowed approvers.</returns>
+    [RequiresUnreferencedCode("Uses WCF services which require reflection")]
+    public static async Task<Result<User[]>> GetAllowedApproversAsync(
+        this IPolarionClient client,
+        string workItemId)
+    {
+        try
+        {
+            var wiResult = await client.GetWorkItemByIdAsync(workItemId);
+            if (wiResult.IsFailed)
+            {
+                return Result.Fail<User[]>(
+                    $"Could not fetch work item '{workItemId}': {wiResult.Errors.FirstOrDefault()?.Message}");
+            }
+
+            var workItem = wiResult.Value;
+            if (workItem == null || string.IsNullOrEmpty(workItem.uri))
+            {
+                return Result.Fail<User[]>($"Work item '{workItemId}' has no URI.");
+            }
+
+            var response = await client.TrackerService.getAllowedApproversAsync(
+                new getAllowedApproversRequest { workitemURI = workItem.uri });
+
+            return Result.Ok(response?.getAllowedApproversReturn ?? Array.Empty<User>());
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail<User[]>(
+                $"Failed to get allowed approvers for '{workItemId}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Adds an approver to a work item.
+    /// Wraps <c>TrackerWebService.addApproveeAsync(workitemURI, approveeId)</c>.
+    /// </summary>
+    /// <param name="client">The Polarion client instance.</param>
+    /// <param name="workItemId">The work item ID (e.g., "REQ-1234").</param>
+    /// <param name="approveeUserId">The Polarion user ID to add as approver.</param>
+    /// <returns>A <c>Result</c> indicating success or failure.</returns>
+    [RequiresUnreferencedCode("Uses WCF services which require reflection")]
+    public static async Task<Result> AddApproveeAsync(
+        this IPolarionClient client,
+        string workItemId,
+        string approveeUserId)
+    {
+        try
+        {
+            var wiResult = await client.GetWorkItemByIdAsync(workItemId);
+            if (wiResult.IsFailed)
+            {
+                return Result.Fail(
+                    $"Could not fetch work item '{workItemId}': {wiResult.Errors.FirstOrDefault()?.Message}");
+            }
+
+            var workItem = wiResult.Value;
+            if (workItem == null || string.IsNullOrEmpty(workItem.uri))
+            {
+                return Result.Fail($"Work item '{workItemId}' has no URI.");
+            }
+
+            await client.TrackerService.addApproveeAsync(
+                new addApproveeRequest { workitemURI = workItem.uri, approveeId = approveeUserId });
+
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail(
+                $"Failed to add approver '{approveeUserId}' to '{workItemId}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Edits an approval status on a work item.
+    /// Wraps <c>TrackerWebService.editApprovalAsync(workitemURI, approveeId, status)</c>.
+    /// </summary>
+    /// <param name="client">The Polarion client instance.</param>
+    /// <param name="workItemId">The work item ID (e.g., "REQ-1234").</param>
+    /// <param name="approveeUserId">The Polarion user ID whose approval to edit.</param>
+    /// <param name="newStatus">The new approval status (e.g., "approved", "disapproved", "waiting").</param>
+    /// <returns>A <c>Result</c> indicating success or failure.</returns>
+    [RequiresUnreferencedCode("Uses WCF services which require reflection")]
+    public static async Task<Result> EditApprovalAsync(
+        this IPolarionClient client,
+        string workItemId,
+        string approveeUserId,
+        string newStatus)
+    {
+        try
+        {
+            var wiResult = await client.GetWorkItemByIdAsync(workItemId);
+            if (wiResult.IsFailed)
+            {
+                return Result.Fail(
+                    $"Could not fetch work item '{workItemId}': {wiResult.Errors.FirstOrDefault()?.Message}");
+            }
+
+            var workItem = wiResult.Value;
+            if (workItem == null || string.IsNullOrEmpty(workItem.uri))
+            {
+                return Result.Fail($"Work item '{workItemId}' has no URI.");
+            }
+
+            await client.TrackerService.editApprovalAsync(
+                new editApprovalRequest
+                {
+                    workitemURI = workItem.uri,
+                    approveeId = approveeUserId,
+                    status = new EnumOptionId { id = newStatus }
+                });
+
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail(
+                $"Failed to edit approval for '{approveeUserId}' on '{workItemId}': {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Removes an approver from a work item.
+    /// Wraps <c>TrackerWebService.removeApproveeAsync(workitemURI, approveeId)</c>.
+    /// </summary>
+    /// <param name="client">The Polarion client instance.</param>
+    /// <param name="workItemId">The work item ID (e.g., "REQ-1234").</param>
+    /// <param name="approveeUserId">The Polarion user ID to remove as approver.</param>
+    /// <returns>A <c>Result</c> indicating success or failure.</returns>
+    [RequiresUnreferencedCode("Uses WCF services which require reflection")]
+    public static async Task<Result> RemoveApproveeAsync(
+        this IPolarionClient client,
+        string workItemId,
+        string approveeUserId)
+    {
+        try
+        {
+            var wiResult = await client.GetWorkItemByIdAsync(workItemId);
+            if (wiResult.IsFailed)
+            {
+                return Result.Fail(
+                    $"Could not fetch work item '{workItemId}': {wiResult.Errors.FirstOrDefault()?.Message}");
+            }
+
+            var workItem = wiResult.Value;
+            if (workItem == null || string.IsNullOrEmpty(workItem.uri))
+            {
+                return Result.Fail($"Work item '{workItemId}' has no URI.");
+            }
+
+            await client.TrackerService.removeApproveeAsync(
+                new removeApproveeRequest { workitemURI = workItem.uri, approveeId = approveeUserId });
+
+            return Result.Ok();
+        }
+        catch (Exception ex)
+        {
+            return Result.Fail(
+                $"Failed to remove approver '{approveeUserId}' from '{workItemId}': {ex.Message}");
         }
     }
 }

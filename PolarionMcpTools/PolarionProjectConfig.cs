@@ -20,6 +20,23 @@ namespace PolarionMcpTools
     }
 
     /// <summary>
+    /// Bindable DTO for the "SessionConfig" section in appsettings.json.
+    /// Unlike <see cref="PolarionClientConfiguration"/> (from the Polarion NuGet
+    /// package) this class has a parameterless constructor so the .NET
+    /// configuration binder can always create it, even when Password is absent
+    /// (PAT-only configs).
+    /// </summary>
+    public class PolarionSessionConfig
+    {
+        public string ServerUrl { get; set; } = string.Empty;
+        public string Username { get; set; } = string.Empty;
+        public string? Password { get; set; }
+        public string? PersonalAccessToken { get; set; }
+        public string ProjectId { get; set; } = string.Empty;
+        public int TimeoutSeconds { get; set; } = 60;
+    }
+
+    /// <summary>
     /// Represents the configuration for a single Polarion project instance
     /// defined in the application settings.
     /// </summary>
@@ -41,28 +58,13 @@ namespace PolarionMcpTools
         /// <summary>
         /// Contains the actual connection details (ServerUrl, Username, Password, etc.)
         /// for this Polarion instance. This property name must match the JSON key ("SessionConfig").
-        /// This property is required and expected to be populated by the configuration binder.
         /// </summary>
-        public PolarionClientConfiguration? SessionConfig { get; set; }
-
-        // -------------------------------------------------------
-        // PAT Authentication (NEW in v0.13.0)
-        // -------------------------------------------------------
+        public PolarionSessionConfig? SessionConfig { get; set; }
 
         /// <summary>
-        /// Optional Polarion Personal Access Token (PAT).
-        /// When set, it is used as the credential instead of
-        /// <c>SessionConfig.Password</c>.
-        ///
-        /// Polarion's SOAP API accepts the PAT as the password
-        /// argument in its logIn() call, so the factory substitutes
-        /// it transparently.
-        ///
-        /// Recommended: Leave this empty in appsettings.json and
-        /// supply it via the <c>POLARION_{ALIAS}_PAT</c> environment
-        /// variable instead so that tokens never appear in config files.
-        ///
-        /// Priority over Password: PAT is always preferred when present.
+        /// Optional Polarion Personal Access Token (PAT) at the project level.
+        /// When set here (or inside SessionConfig), it is used as the credential
+        /// instead of <c>SessionConfig.Password</c>.
         /// </summary>
         public string? PersonalAccessToken { get; set; }
 
@@ -74,19 +76,8 @@ namespace PolarionMcpTools
         /// When <c>true</c>, MCP write tools require the caller to
         /// hold the <c>polarion:write</c> scope.  Defaults to <c>true</c>
         /// for the remote HTTP server.
-        ///
-        /// Set to <c>false</c> only for trusted internal deployments
-        /// where authentication is handled at the network layer.
-        ///
-        /// Note: This has no effect on the stdio console server
-        /// (<c>PolarionMcpServer</c>), which always uses
-        /// <c>DefaultMcpScopeEnforcer</c> (permits everything).
         /// </summary>
         public bool EnforceMcpScopes { get; set; } = true;
-
-        // -------------------------------------------------------
-        // Existing fields (unchanged)
-        // -------------------------------------------------------
 
         /// <summary>
         /// A string pattern used to filter out spaces that contain this string.
@@ -96,7 +87,6 @@ namespace PolarionMcpTools
 
         /// <summary>
         /// Optional work item ID prefix for this project (e.g., "STR", "OCT").
-        /// Used for display and validation purposes.
         /// </summary>
         public string? WorkItemPrefix { get; set; }
 
@@ -124,26 +114,28 @@ namespace PolarionMcpTools
 
         /// <summary>
         /// Returns a <see cref="PolarionClientConfiguration"/> ready for
-        /// <c>PolarionClient.CreateAsync()</c>.  Substitutes the PAT for
-        /// Password when a PAT is available.
+        /// <c>PolarionClient.CreateAsync()</c>.  Resolves PAT from either
+        /// the project-level property (set by env var overrides in Program.cs) 
+        /// or SessionConfig.PersonalAccessToken, and substitutes it for Password.
         /// </summary>
         public PolarionClientConfiguration? GetEffectiveClientConfig()
         {
             if (SessionConfig == null) return null;
 
+            // Project-level PAT (set by env var override) takes priority
+            // over SessionConfig.PersonalAccessToken (may contain unresolved placeholders)
             var pat = PersonalAccessToken;
             if (string.IsNullOrWhiteSpace(pat))
             {
-                // No PAT — use SessionConfig as-is.
-                return SessionConfig;
+                pat = SessionConfig.PersonalAccessToken;
             }
 
-            // PAT is present: create a modified copy where Password = PAT.
-            // Polarion SOAP logIn(username, password) accepts PAT as password.
+            var effectivePassword = !string.IsNullOrWhiteSpace(pat) ? pat : SessionConfig.Password ?? string.Empty;
+
             return new PolarionClientConfiguration(
                 SessionConfig.ServerUrl,
                 SessionConfig.Username,
-                pat,   // ← PAT substituted here
+                effectivePassword,
                 SessionConfig.ProjectId,
                 SessionConfig.TimeoutSeconds);
         }

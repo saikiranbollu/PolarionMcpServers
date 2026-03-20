@@ -112,7 +112,7 @@ public class Program
 
             // Make environment variables available to the configuration binder as well.
             // This allows overrides like PolarionProjects__0__SessionConfig__Password if you prefer
-            // to use the built-in configuration binding naming convention.
+            // to use the built-in configuration binding naming convention.  (though POLARION_PERSONAL_TOKEN is recommended).
             builder.Configuration.AddEnvironmentVariables();
 
             if (!string.IsNullOrEmpty(configPath))
@@ -261,6 +261,39 @@ public class Program
             catch (Exception ex)
             {
                 Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
+            }
+
+            // Allow overriding credentials via PERSONAL_TOKEN environment variables.
+            // When set, the token is stored in PersonalAccessToken, which GetEffectiveClientConfig()
+            // substitutes for Password when creating the Polarion SOAP client.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_PERSONAL_TOKEN  (alias normalized to [A-Z0-9_])
+            //  - POLARION_PERSONAL_TOKEN           (fallback for default project)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+                    var envName = $"POLARION_{norm}_PERSONAL_TOKEN";
+                    var envVal = Environment.GetEnvironmentVariable(envName);
+                    if (string.IsNullOrEmpty(envVal) && proj.Default)
+                    {
+                        envVal = Environment.GetEnvironmentVariable("POLARION_PERSONAL_TOKEN");
+                        envName = "POLARION_PERSONAL_TOKEN";
+                    }
+
+                    if (!string.IsNullOrEmpty(envVal))
+                    {
+                        proj.PersonalAccessToken = envVal;
+                        Log.Information("Overrode PersonalAccessToken for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, envName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion personal tokens from environment variables.");
             }
 
             // Allow overriding Personal Access Tokens via environment variables.

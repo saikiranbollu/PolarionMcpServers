@@ -160,24 +160,58 @@ public class Program
                 Log.Warning(ex, "Error while attempting to override Polarion passwords from environment variables.");
             }
 
-            // Allow overriding Personal Access Tokens via environment variables.
-            // PAT takes priority over password when both are present.
+            // Allow overriding credentials via PERSONAL_TOKEN environment variables.
+            // When set, the token is stored in PersonalAccessToken, which GetEffectiveClientConfig()
+            // substitutes for Password when creating the Polarion SOAP client.
             // Supported env var names:
-            //  - POLARION_{ALIAS}_PAT  (alias normalized to [A-Z0-9_])
-            //  - POLARION_PAT          (applies to the project marked Default)
+            //  - POLARION_{ALIAS}_PERSONAL_TOKEN  (alias normalized to [A-Z0-9_])
+            //  - POLARION_PERSONAL_TOKEN           (fallback for default project)
             try
             {
                 foreach (var proj in polarionProjects)
                 {
                     if (proj == null) continue;
                     var alias = proj.ProjectUrlAlias ?? string.Empty;
-                    var norm  = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+                    // Normalize alias to upper-case letters, digits and underscores
+                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
+                    var envName = $"POLARION_{norm}_PERSONAL_TOKEN";
+                    var envVal = Environment.GetEnvironmentVariable(envName);
+                    if (string.IsNullOrEmpty(envVal) && proj.Default)
+                    {
+                        envVal = Environment.GetEnvironmentVariable("POLARION_PERSONAL_TOKEN");
+                        envName = "POLARION_PERSONAL_TOKEN";
+                    }
+
+                    if (!string.IsNullOrEmpty(envVal))
+                    {
+                        proj.PersonalAccessToken = envVal;
+                        Log.Information("Overrode PersonalAccessToken for project '{ProjectAlias}' from env var '{EnvVarName}'", alias, envName);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "Error while attempting to override Polarion personal tokens from environment variables.");
+            }
+
+            // Allow overriding Personal Access Tokens via short-form environment variables.
+            // PAT takes priority over password when both are present.
+            // Supported env var names:
+            //  - POLARION_{ALIAS}_PAT  (alias normalized to [A-Z0-9_])
+            //  - POLARION_PAT          (fallback for default project)
+            try
+            {
+                foreach (var proj in polarionProjects)
+                {
+                    if (proj == null) continue;
+                    var alias = proj.ProjectUrlAlias ?? string.Empty;
+                    var norm = Regex.Replace(alias, "[^A-Za-z0-9]", "_").ToUpperInvariant();
 
                     var patEnvName = $"POLARION_{norm}_PAT";
-                    var patEnvVal  = Environment.GetEnvironmentVariable(patEnvName);
+                    var patEnvVal = Environment.GetEnvironmentVariable(patEnvName);
                     if (string.IsNullOrEmpty(patEnvVal) && proj.Default)
                     {
-                        patEnvVal  = Environment.GetEnvironmentVariable("POLARION_PAT");
+                        patEnvVal = Environment.GetEnvironmentVariable("POLARION_PAT");
                         patEnvName = "POLARION_PAT";
                     }
 

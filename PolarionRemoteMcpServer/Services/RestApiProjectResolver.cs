@@ -76,15 +76,16 @@ public class RestApiProjectResolver
             return Result.Fail($"Project '{projectId}' not found. Ensure the project is configured in appsettings.json.");
         }
 
-        if (config.SessionConfig == null)
+        var effectiveConfig = config.GetEffectiveClientConfig();
+        if (effectiveConfig == null)
         {
             return Result.Fail($"Project '{projectId}' has no SessionConfig defined.");
         }
 
         _logger.LogDebug("REST API: Creating Polarion client for project '{ProjectId}' on server '{ServerUrl}'",
-            projectId, config.SessionConfig.ServerUrl);
+            projectId, effectiveConfig.ServerUrl);
 
-        var clientResult = await PolarionClient.CreateAsync(config.SessionConfig);
+        var clientResult = await PolarionClient.CreateAsync(effectiveConfig);
         if (clientResult.IsFailed)
         {
             var errorMessage = clientResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";

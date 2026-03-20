@@ -63,12 +63,6 @@ namespace PolarionRemoteMcpServer
                 }
             }
 
-            // -------------------------------------------------------
-            // v0.13.0: Use GetEffectiveClientConfig() to support PAT.
-            //   If a PersonalAccessToken is configured, this method
-            //   returns a copy of SessionConfig with Password replaced
-            //   by the PAT — transparent to PolarionClient.CreateAsync.
-            // -------------------------------------------------------
             var clientConfig = selectedConfig.GetEffectiveClientConfig();
 
             if (clientConfig == null)
@@ -78,17 +72,32 @@ namespace PolarionRemoteMcpServer
                 return Result.Fail(errorMessage);
             }
 
-            // Log the auth mode in use (without exposing the credential).
-            var authMode = !string.IsNullOrWhiteSpace(selectedConfig.PersonalAccessToken)
-                ? "PAT"
-                : "Password";
+            // PAT can live in SessionConfig or at the project level
+            var pat = selectedConfig.SessionConfig?.PersonalAccessToken;
+            if (string.IsNullOrWhiteSpace(pat))
+            {
+                pat = selectedConfig.PersonalAccessToken;
+            }
+            var authMode = !string.IsNullOrWhiteSpace(pat) ? "PAT (Bearer)" : "Password (SOAP)";
             _logger.LogDebug(
                 "Creating Polarion client using Server: {ServerUrl}, User: {Username}, " +
                 "Project: {RealProjectId}, AuthMode: {AuthMode}",
                 clientConfig.ServerUrl, clientConfig.Username, clientConfig.ProjectId, authMode);
 
-            // Create the client using the selected configuration
-            var clientResult = await PolarionClient.CreateAsync(clientConfig);
+            // Create the client: Bearer token for PAT, SOAP login for password
+            Result<IPolarionClient> clientResult;
+            if (!string.IsNullOrWhiteSpace(pat))
+            {
+                clientResult = await PolarionBearerTokenClient.CreateAsync(clientConfig, pat);
+            }
+            else
+            {
+                var soapResult = await PolarionClient.CreateAsync(clientConfig);
+                clientResult = soapResult.IsSuccess
+                    ? Result.Ok<IPolarionClient>(soapResult.Value)
+                    : Result.Fail<IPolarionClient>(soapResult.Errors);
+            }
+
             if (clientResult.IsFailed)
             {
                 var errorMessage = clientResult.Errors.FirstOrDefault()?.Message ?? "Unknown error";
@@ -103,7 +112,7 @@ namespace PolarionRemoteMcpServer
 
             _logger.LogDebug("Successfully created new Polarion client for server: {ServerUrl} (Alias: {Alias})", 
                 clientConfig.ServerUrl, selectedConfig.ProjectUrlAlias);
-            return clientResult.Value;
+            return Result.Ok(clientResult.Value);
         }
     }
 }
